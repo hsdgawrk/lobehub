@@ -13,7 +13,9 @@ export type {
   SubagentIntent,
   SubagentReduceCtx,
   SubagentRun,
+  SubagentRunSnapshot,
   SubagentRunsState,
   SubagentTurnToolState,
+  UpdateToolStateIntent,
 } from './types';
-export { createSubagentRunsState } from './types';
+export { createSubagentRunsState, rehydrateSubagentRunsState } from './types';

@@ -1,4 +1,6 @@
-import { Button, Center, Flexbox, Icon, Tooltip } from '@lobehub/ui';
+import { Center, Flexbox, Icon, Tooltip } from '@lobehub/ui';
+import { Button } from '@lobehub/ui/base-ui';
+import { App } from 'antd';
 import { createStaticStyles } from 'antd-style';
 import { BrainIcon, LucideRefreshCcwDot, PlusIcon } from 'lucide-react';
 import { memo, use, useState } from 'react';
@@ -48,6 +50,7 @@ const styles = createStaticStyles(({ css, cssVar }) => ({
 
 const EmptyState = memo<{ provider: string }>(({ provider }) => {
   const { t } = useTranslation('modelProvider');
+  const { message } = App.useApp();
   const { allowed: canManageProvider, reason } = usePermission('manage_provider_key');
 
   const [fetchRemoteModelList] = useAiInfraStore((s) => [s.fetchRemoteModelList]);
@@ -66,19 +69,24 @@ const EmptyState = memo<{ provider: string }>(({ provider }) => {
       </Flexbox>
 
       <Flexbox horizontal gap={8}>
-        <Tooltip title={canManageProvider ? '' : reason}>
+        <Tooltip title={canManageProvider ? undefined : reason}>
           <Button
             disabled={!canManageProvider}
             icon={PlusIcon}
             onClick={() => {
               if (!canManageProvider) return;
-              createCreateNewModelModal({ showDeployName });
+              createCreateNewModelModal({
+                existingModelIds: useAiInfraStore
+                  .getState()
+                  .aiProviderModelList.map((model) => model.id),
+                showDeployName,
+              });
             }}
           >
             {t('providerModels.list.addNew')}
           </Button>
         </Tooltip>
-        <Tooltip title={canManageProvider ? '' : reason}>
+        <Tooltip title={canManageProvider ? undefined : reason}>
           <Button
             disabled={!canManageProvider}
             icon={<Icon icon={LucideRefreshCcwDot} />}
@@ -89,10 +97,22 @@ const EmptyState = memo<{ provider: string }>(({ provider }) => {
               setFetchRemoteModelsLoading(true);
               try {
                 await fetchRemoteModelList(provider);
-              } catch (e) {
-                console.error(e);
+              } catch (error) {
+                console.error(error);
+
+                const errorMessage =
+                  error instanceof Error
+                    ? error.message
+                    : t('providerModels.list.fetcher.errorFallback');
+
+                message.error(
+                  t('providerModels.list.fetcher.error', {
+                    message: errorMessage,
+                  }),
+                );
+              } finally {
+                setFetchRemoteModelsLoading(false);
               }
-              setFetchRemoteModelsLoading(false);
             }}
           >
             {fetchRemoteModelsLoading

@@ -28,6 +28,17 @@ const toRelativePath = (url: string): string => {
 };
 
 /**
+ * Sanitize a user-supplied redirect target before it reaches
+ * `window.location.href`: same-origin absolute URLs are normalized to relative
+ * paths, anything unsafe (`javascript:`, `https://evil.com`, `//…`) falls back.
+ */
+export const sanitizeRedirectPath = (url: string | null | undefined, fallback = '/'): string => {
+  if (!url) return fallback;
+  const target = toRelativePath(url);
+  return isSafeRedirectPath(target) ? target : fallback;
+};
+
+/**
  * Build the first-hop URL for a freshly signed-up user. New users always land
  * on onboarding first; the original target (if any) is threaded through the
  * `callbackUrl` query param and restored when onboarding finishes.
@@ -57,9 +68,9 @@ export const stashOnboardingCallbackUrl = (search: string): void => {
 /**
  * Drop a stale stashed callback left by a previously abandoned onboarding
  * attempt in this tab. Only a fresh top-level entry (`/onboarding` without a
- * valid `callbackUrl`) may clear: internal navigations either stay on branch
- * paths (`/onboarding/agent`, `/onboarding/classic`) or re-enter the shared
- * prefix with an explicit `?step` param, and must keep the stash intact.
+ * valid `callbackUrl`) may clear: internal step changes stay on `/onboarding`
+ * itself or re-enter it with an explicit `?step` param, and must keep the
+ * stash intact.
  */
 export const clearStaleOnboardingCallbackUrl = (pathname: string, search: string): void => {
   if (pathname !== ONBOARDING_PATH) return;

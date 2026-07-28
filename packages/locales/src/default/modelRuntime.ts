@@ -44,7 +44,9 @@ export default {
   LocationNotSupportError:
     "We're sorry, your current location does not support this model service. This may be due to regional restrictions or the service not being available. Please confirm if the current location supports using this service, or try using a different location.",
   ModelEmptyCompletion:
-    'The model returned an empty response. This usually clears up on retry; if it persists, try simplifying the request or switching models.',
+    'The model provider returned an empty response. Even without visible content, this request may still incur charges. You can retry or switch models and try again.',
+  ModelEmptyCompletionWithCost:
+    'The model provider returned an empty response. This request cost {{credits}} credits. Retrying may incur a similar cost, or you can switch models.',
   ModelNotFound:
     'Sorry, the requested model could not be found. It may not exist or you may not have the necessary access permissions. Please try again after changing the API Key or adjusting your access permissions.',
   NoAvailableChannel:
@@ -69,6 +71,8 @@ export default {
     "Sorry, the token usage or request count has reached the rate limit for this key. Please try again later or increase the key's quota.",
   StateStorePersistError:
     'A temporary issue with the conversation state store interrupted this operation. Please try again; if it persists, contact support.',
+  StateStoreReadError:
+    'This operation could not be resumed because its session state was unavailable. Please reopen the conversation to continue; if it persists, contact support.',
   StreamChunkError:
     'Error parsing the message chunk of the streaming request. Please check if the current API interface complies with the standard specifications, or contact your API provider for assistance.',
   UpstreamGatewayError:

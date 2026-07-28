@@ -24,6 +24,14 @@ export interface FormattedMcpValue {
 
 const LINEAR_CODEX_PREFIX = 'linear_';
 const LINEAR_CODEX_SERVER_PREFIX = 'server_';
+const GITHUB_CODEX_PREFIX = 'github_';
+const GITHUB_CODEX_SERVER_PREFIX = 'server_github_';
+const CODEX_LINEAR_FETCH_API_BY_ENTITY: Record<string, string> = {
+  document: 'get_document',
+  initiative: 'get_initiative',
+  issue: 'get_issue',
+  project: 'get_project',
+};
 const SERVER_KEYS = ['server', 'serverName', 'server_name', 'connector', 'connector_id'];
 const TOOL_KEYS = ['tool', 'toolName', 'tool_name', 'name'];
 const INPUT_KEYS = ['arguments', 'args', 'input', 'params', 'parameters'];
@@ -83,18 +91,130 @@ export const getMcpInputRecord = (
   }
 };
 
-export const getCodexLinearMcpApiName = (toolName: string) => {
-  if (!toolName) return '';
+const normalizeCodexLinearToolName = (toolName: string) => {
+  if (!toolName) return { apiName: '', hasLinearPrefix: false };
 
-  let apiName = toolName.trim();
-  if (apiName.startsWith(LINEAR_CODEX_PREFIX)) {
-    apiName = apiName.slice(LINEAR_CODEX_PREFIX.length);
+  let apiName = toolName
+    .trim()
+    .replaceAll(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .replaceAll(/[.\-\s]+/g, '_')
+    .toLowerCase();
+  let hasLinearPrefix = false;
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+
+    if (apiName.startsWith(LINEAR_CODEX_PREFIX)) {
+      apiName = apiName.slice(LINEAR_CODEX_PREFIX.length);
+      hasLinearPrefix = true;
+      changed = true;
+    }
+
+    if (apiName.startsWith(LINEAR_CODEX_SERVER_PREFIX)) {
+      apiName = apiName.slice(LINEAR_CODEX_SERVER_PREFIX.length);
+      changed = true;
+    }
+
+    while (apiName.startsWith('_')) {
+      apiName = apiName.slice(1);
+      changed = true;
+    }
   }
-  if (apiName.startsWith(LINEAR_CODEX_SERVER_PREFIX)) {
-    apiName = apiName.slice(LINEAR_CODEX_SERVER_PREFIX.length);
+
+  return { apiName, hasLinearPrefix };
+};
+
+const normalizeCodexGithubToolName = (toolName: string) => {
+  if (!toolName) return { apiName: '', hasGithubPrefix: false };
+
+  let apiName = toolName
+    .trim()
+    .replaceAll(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .replaceAll(/[-\s]+/g, '_')
+    .toLowerCase();
+  let hasGithubPrefix = false;
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+
+    if (apiName.startsWith(GITHUB_CODEX_SERVER_PREFIX)) {
+      apiName = apiName.slice(GITHUB_CODEX_SERVER_PREFIX.length);
+      hasGithubPrefix = true;
+      changed = true;
+    }
+
+    if (apiName.startsWith(GITHUB_CODEX_PREFIX)) {
+      apiName = apiName.slice(GITHUB_CODEX_PREFIX.length);
+      hasGithubPrefix = true;
+      changed = true;
+    }
+
+    while (apiName.startsWith('_')) {
+      apiName = apiName.slice(1);
+      changed = true;
+    }
   }
+
+  return { apiName, hasGithubPrefix };
+};
+
+const isLinearServerName = (server?: string) =>
+  normalizeString(server)
+    .split(/[^a-z0-9]+/iu)
+    .some((part) => part.toLowerCase() === 'linear');
+
+const isGithubServerName = (server?: string) =>
+  normalizeString(server)
+    .split(/[^a-z0-9]+/iu)
+    .some((part) => part.toLowerCase() === 'github');
+
+const getCodexLinearFetchApiName = (
+  input: Record<string, unknown> | undefined,
+  isLinearContext: boolean,
+) => {
+  const id = normalizeString(input?.id);
+  const entityPrefix = id.includes(':') ? id.slice(0, id.indexOf(':')).toLowerCase() : '';
+  const prefixedApiName = CODEX_LINEAR_FETCH_API_BY_ENTITY[entityPrefix];
+  if (prefixedApiName) return prefixedApiName;
+
+  if (!isLinearContext) return '';
+
+  if (/^[A-Z][A-Z0-9]+-\d+$/u.test(id)) return 'get_issue';
+
+  return 'fetch';
+};
+
+export const getCodexLinearMcpApiName = ({
+  input,
+  server,
+  toolName,
+}: {
+  input?: Record<string, unknown>;
+  server?: string;
+  toolName: string;
+}) => {
+  const { apiName, hasLinearPrefix } = normalizeCodexLinearToolName(toolName);
+  const isLinearContext = hasLinearPrefix || isLinearServerName(server);
+
+  if (apiName === 'fetch') return getCodexLinearFetchApiName(input, isLinearContext);
+  if (apiName === 'search') return isLinearContext ? apiName : '';
 
   return apiName;
+};
+
+export const getCodexGithubMcpApiName = ({
+  server,
+  toolName,
+}: {
+  server?: string;
+  toolName: string;
+}) => {
+  const { apiName, hasGithubPrefix } = normalizeCodexGithubToolName(toolName);
+  const isGithubContext = hasGithubPrefix || isGithubServerName(server);
+
+  return isGithubContext ? apiName : '';
 };
 
 const stringifyValue = (value: unknown): string => {

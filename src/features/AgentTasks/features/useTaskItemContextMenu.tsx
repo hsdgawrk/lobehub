@@ -21,7 +21,9 @@ import {
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useActiveWorkspaceSlug } from '@/business/client/hooks/useActiveWorkspaceSlug';
 import { useTaskTransferMenuItem } from '@/business/client/hooks/useTaskTransferMenuItem';
+import { buildWorkspaceAwarePath } from '@/features/Workspace/workspaceAwarePath';
 import { useAppOrigin } from '@/hooks/useAppOrigin';
 import { usePermission } from '@/hooks/usePermission';
 import { useAgentStore } from '@/store/agent';
@@ -36,6 +38,7 @@ import { STATUS_META, USER_SELECTABLE_STATUSES } from './TaskStatusTag';
 const PRIORITY_LEVELS = [0, 1, 2, 3, 4];
 
 type ActiveSubmenu = 'status' | 'priority' | null;
+type TaskItemRouteScope = 'agent' | 'global';
 
 interface TaskItemContextMenu {
   items: ContextMenuItem[];
@@ -56,10 +59,13 @@ export interface TaskContextMenuActions {
   installKeyboardHandlers: (task: TaskContextMenuTarget) => void;
 }
 
-export const useTaskContextMenuActions = (): TaskContextMenuActions => {
+export const useTaskContextMenuActions = (
+  routeScope: TaskItemRouteScope = 'agent',
+): TaskContextMenuActions => {
   const { t } = useTranslation(['chat', 'common']);
   const { message } = App.useApp();
   const appOrigin = useAppOrigin();
+  const activeWorkspaceSlug = useActiveWorkspaceSlug();
   const { allowed: canEditTask } = usePermission('create_content');
 
   const updateTaskStatus = useTaskStore((s) => s.updateTaskStatus);
@@ -133,9 +139,12 @@ export const useTaskContextMenuActions = (): TaskContextMenuActions => {
         } as ContextMenuItem;
       });
 
-      const taskUrl = `${appOrigin}${taskDetailPath(
-        task.identifier,
-        task.assigneeAgentId ?? undefined,
+      const taskUrl = `${appOrigin}${buildWorkspaceAwarePath(
+        taskDetailPath(
+          task.identifier,
+          routeScope === 'agent' ? (task.assigneeAgentId ?? undefined) : undefined,
+        ),
+        activeWorkspaceSlug,
       )}`;
       const canRunNow = RUN_NOW_STATUSES.has(currentStatus);
 
@@ -295,17 +304,22 @@ export const useTaskContextMenuActions = (): TaskContextMenuActions => {
     message,
     t,
     appOrigin,
+    activeWorkspaceSlug,
     updateTaskStatus,
     updateTask,
     refreshTaskList,
     deleteTask,
     runTask,
     inboxAgentId,
+    routeScope,
   ]);
 };
 
-export const useTaskItemContextMenu = (task: TaskContextMenuTarget): TaskItemContextMenu => {
-  const { buildItems, installKeyboardHandlers } = useTaskContextMenuActions();
+export const useTaskItemContextMenu = (
+  task: TaskContextMenuTarget,
+  routeScope?: TaskItemRouteScope,
+): TaskItemContextMenu => {
+  const { buildItems, installKeyboardHandlers } = useTaskContextMenuActions(routeScope);
   const transferItems = useTaskTransferMenuItem(task.identifier) as ContextMenuItem[] | null;
   const items = useMemo(() => {
     const base = buildItems(task);

@@ -2,7 +2,7 @@
 
 import { Accordion, AccordionItem, Flexbox, Text } from '@lobehub/ui';
 import { memo, useMemo } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router';
 
 import { useActiveWorkspaceSlug } from '@/business/client/hooks/useActiveWorkspaceSlug';
 import NavItem from '@/features/NavPanel/components/NavItem';
@@ -37,6 +37,7 @@ const Body = memo(() => {
           WorkspaceSettingsGroupKey.General,
           WorkspaceSettingsGroupKey.Subscription,
           WorkspaceSettingsGroupKey.Agent,
+          WorkspaceSettingsGroupKey.Developer,
           WorkspaceSettingsGroupKey.Admin,
         ]}
       >

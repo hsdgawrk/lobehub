@@ -34,6 +34,7 @@ vi.mock('zustand/traditional');
 // Mock messageService
 vi.mock('@/services/message', () => ({
   messageService: {
+    batchMutateOrThrow: vi.fn(),
     createMessage: vi.fn(),
     updateMessage: vi.fn(),
     updateMessageError: vi.fn(),
@@ -355,9 +356,11 @@ describe('ChatPluginAction', () => {
         await result.current.invokeBuiltinTool(messageId, payload);
       });
 
+      expect(capturedContext?.anchorMessageId).toBe('assistant-msg-1');
       expect(capturedContext?.messageId).toBe(messageId);
       expect(capturedContext?.sourceMessageId).toBe('user-msg-1');
       expect(capturedContext?.toolCallId).toBe('tool-call-1');
+      expect(capturedContext?.toolMessageId).toBe(messageId);
     });
 
     it('should pass sub-agent context to Tool Store executor', async () => {
@@ -1333,16 +1336,13 @@ describe('ChatPluginAction', () => {
         );
       });
 
-      it('optimisticUpdateToolMessage should pass groupId via ctx', async () => {
+      it('optimisticUpdateToolMessage should persist through a quiet batch mutation', async () => {
         const { result } = renderHook(() => useChatStore());
         const messageId = 'message-id';
         const content = 'new content';
         const pluginState = { status: 'success' };
 
-        (messageService.updateToolMessage as Mock).mockResolvedValue({
-          success: true,
-          messages: [],
-        });
+        (messageService.batchMutateOrThrow as Mock).mockResolvedValue({ success: true });
 
         let operationId: string;
         await act(async () => {
@@ -1359,16 +1359,14 @@ describe('ChatPluginAction', () => {
           );
         });
 
-        // Now uses single updateToolMessage call instead of multiple parallel calls
-        expect(messageService.updateToolMessage).toHaveBeenCalledWith(
-          messageId,
-          { content, metadata: undefined, pluginError: undefined, pluginState },
-          expect.objectContaining({
-            agentId: groupContext.agentId,
-            groupId: groupContext.groupId,
-            topicId: groupContext.topicId,
-          }),
-        );
+        expect(messageService.batchMutateOrThrow).toHaveBeenCalledWith([
+          {
+            id: messageId,
+            type: 'updateToolMessage',
+            value: { content, metadata: undefined, pluginError: undefined, pluginState },
+          },
+        ]);
+        expect(messageService.updateToolMessage).not.toHaveBeenCalled();
       });
     });
   });
@@ -1467,18 +1465,18 @@ describe('ChatPluginAction', () => {
       });
     });
 
-    describe('invokeKlavisTypePlugin', () => {
+    describe('invokeComposioTypePlugin', () => {
       it('should use optimisticUpdateToolMessage for successful result', async () => {
         const mockResult = {
-          content: 'klavis result content',
+          content: 'composio result content',
           state: { data: 'test-data' },
           success: true,
         };
 
         // Mock useToolStore to return a server
         vi.spyOn(useToolStore, 'getState').mockReturnValue({
-          servers: [{ identifier: 'test-plugin', serverUrl: 'http://test.com' }],
-          callKlavisTool: vi.fn().mockResolvedValue({
+          composioServers: [{ identifier: 'test-plugin', serverUrl: 'http://test.com' }],
+          callComposioTool: vi.fn().mockResolvedValue({
             success: true,
             data: mockResult,
           }),
@@ -1500,7 +1498,7 @@ describe('ChatPluginAction', () => {
         const { result } = renderHook(() => useChatStore());
 
         await act(async () => {
-          await result.current.invokeKlavisTypePlugin(messageId, payload);
+          await result.current.invokeComposioTypePlugin(messageId, payload);
         });
 
         expect(optimisticUpdateToolMessageMock).toHaveBeenCalledWith(

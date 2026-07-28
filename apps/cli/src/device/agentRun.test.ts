@@ -103,6 +103,19 @@ describe('spawnHeteroAgentRun', () => {
     expect(args).toContain('sess-9');
   });
 
+  it('forwards resolved args to lh hetero exec', () => {
+    const child = makeFakeChild();
+    spawnMock.mockReturnValue(child);
+
+    void spawnHeteroAgentRun({
+      ...baseParams,
+      args: ['--model', 'opus', '--effort', 'high'],
+    });
+
+    const [, args] = spawnMock.mock.calls[0];
+    expect(args.slice(-4)).toEqual(['--model', 'opus', '--effort', 'high']);
+  });
+
   it('sends a content-block array to stdin when systemContext is provided', async () => {
     const child = makeFakeChild();
     spawnMock.mockReturnValue(child);
@@ -119,6 +132,26 @@ describe('spawnHeteroAgentRun', () => {
       JSON.stringify([
         { text: 'workspace rules', type: 'text' },
         { text: 'do it', type: 'text' },
+      ]),
+    );
+  });
+
+  it('appends image blocks to stdin when imageList is provided', async () => {
+    const child = makeFakeChild();
+    spawnMock.mockReturnValue(child);
+
+    const ackPromise = spawnHeteroAgentRun({
+      ...baseParams,
+      imageList: [{ id: 'file-1', url: 'https://signed/a.png' }],
+      prompt: 'look at this',
+    });
+    child.emit('spawn');
+    await ackPromise;
+
+    expect(child.stdin.write).toHaveBeenCalledWith(
+      JSON.stringify([
+        { text: 'look at this', type: 'text' },
+        { source: { id: 'file-1', type: 'url', url: 'https://signed/a.png' }, type: 'image' },
       ]),
     );
   });
